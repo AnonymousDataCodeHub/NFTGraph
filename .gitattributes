@@ -1,14 +1,10 @@
 raw_data/edges.csv filter=lfs diff=lfs merge=lfs -text
 raw_data/nodes.csv filter=lfs diff=lfs merge=lfs -text
-
 datasets/ogb_graph/submission_ogbn_tinynftgraph/meta_dict.pt filter=lfs diff=lfs merge=lfs -text
 datasets/ogb_graph/submission_ogbn_tinynftgraph/tinynftgraph.zip filter=lfs diff=lfs merge=lfs -text
-
 datasets/ogb_graph/submission_ogbn_nftgraph/nftgraph.zip filter=lfs diff=lfs merge=lfs -text
 datasets/ogb_graph/submission_ogbn_nftgraph/meta_dict.pt filter=lfs diff=lfs merge=lfs -text
-
 datasets/pyg_graph/tinynftgraph filter=lfs diff=lfs merge=lfs -text
 datasets/pyg_graph/nftgraph filter=lfs diff=lfs merge=lfs -text
-
 datasets/dgl_graph/tinynftgraph filter=lfs diff=lfs merge=lfs -text
 datasets/dgl_graph/nftgraph filter=lfs diff=lfs merge=lfs -text
