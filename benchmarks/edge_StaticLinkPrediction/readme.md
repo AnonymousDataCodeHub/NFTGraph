@@ -17,13 +17,13 @@ We select five advanced GNN models, namely SEAL, SEAL+NGNN, SUREL, SIEG, and AGD
 ### Codes
 Thanks to `dgl` package, the reference codes are listed as follows:
 
-SEAL: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/seal_ogbl.\
-SEAL+NGNN: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/ngnn_seal.\
-SUREL:https://github.com/Graph-COM/SUREL.\
-SIEG: https://github.com/anonymous20221001/SIEG_OGB.\
-AGDN: https://github.com/skepsun/Adaptive-Graph-Diffusion-Networks.\
-GraphSAGE: https://github.com/dmlc/dgl/tree/master/examples/pytorch/graphsage.\
-GAT: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/ogbn-products/gat.\
+SEAL: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/seal_ogbl. \
+SEAL+NGNN: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/ngnn_seal. \
+SUREL:https://github.com/Graph-COM/SUREL. \
+SIEG: https://github.com/anonymous20221001/SIEG_OGB. \
+AGDN: https://github.com/skepsun/Adaptive-Graph-Diffusion-Networks. \
+GraphSAGE: https://github.com/dmlc/dgl/tree/master/examples/pytorch/graphsage. \
+GAT: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/ogbn-products/gat. \
 GCN: https://github.com/dmlc/dgl/tree/master/examples/pytorch/gcn.
 
 ### Results
