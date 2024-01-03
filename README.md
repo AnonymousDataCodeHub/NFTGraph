@@ -18,7 +18,8 @@ NFTGraph/
 ├── utils.py
 └── benchmarks
 ```
-<!-- ## Background Knowledge of blockchain and NFT -->
+## Pre: Background Knowledge of blockchain and NFT
+At the end.
 
 
 ## I. Dataset
@@ -248,3 +249,34 @@ Enter `/NFTGraph/benchmarks/edge_StaticLinkPrediction` for more details of resul
 Dynamic graph neural networks for temporal link prediction is accomplished by `TGB` package in a Python language, which can be found on https://github.com/fpour/TGB_Baselines/tree/main/models and https://github.com/shenyangHuang/TGB/tree/main.
 
 Enter `/NFTGraph/benchmarks/edge_TemporalLinkPrediction` for more details of results of benchmarks.
+
+
+## Background Knowledge of blockchain and NFT
+
+### Blockchain
+The blockchain is essentially a ledger, where each transaction is documented. Each transaction represents an action of a certain `transferedAmount` of `token` worth `value` between the `from` and `to` addresses at a specific `timestamp`, spending a transaction fee (`transactionFee`).
+
+### Nodes and Edges on the Ethereum Blockchain
+The Ethereum blockchain has two types of accounts: Externally Owned Accounts (EOAs) and Contract Accounts (CAs). EOAs are operated by external users who interact with smart contracts or send transactions to others. On the other hand, CAs are controlled by smart contracts, which execute code when triggered by a transaction from an EOA or another CA. Specially, **0x00...0000** or **0x00...dead** is a generic null address, which is not owned by any user.
+
+Therefore, there are four types of edges: `Transfer` usually shows that the **From** address is the same as the **To** address, and/or the transaction value is non-zero, while `Trade` indicates a transaction where the **From** address is different from the **To** address, and the value is non-zero because of the buying or selling token. There are two types of transactions related to the null address: `Mint` and `Burn`. `Mint` indicates the source node is the null address, meaning a token is minted, while `Burn` presents that the null address is as a target node when a token is burnt.
+
+We can label the edges according to their edge type. In `transaction.csv`, there are four values of `edgelabel`, where `10` represents the **Transfer** edge of *User-to-User*, `11` refers to the **Trade** edge of *User-to-User*, `12` is the **Mint** edge of *Null Address-to-User*, `13` means the **Burn** edge of *User-to-Null Address*. These labels can be used for edge classification.
+
+### NFT
+NFTGraph distinguishes itself from prior blockchain-based graph datasets, such as `Bitcoin` and `Ethereum`. As illustrated in Figure 1 (a), assets transferred in previous blockchain networks are identical, such as bitcoin, whereas in NFT transaction networks, assets are unique since each asset is distinct. NFT's inherent property can aid in labeling during graph construction, since transactions with the same NFT collections can be grouped into a community/subgraph and the category of NFT collections can serve as unique community/subgraph labels including art, gaming, and music. The following table presents the statistical outcomes for each category, where PFPs denote the images employed as social media avatars or profile pictures. (In `raw_data/crawler/token_category.csv`.) These labels can be used for graph classification.
+
+![Fig.1 Description on NFT trading networks and collections. (a) NFTs are unique digital assets that can represent anything from art to virtual real estate. NFT trading networks involve the exchange of various digital assets, in contrast to bitcoin networks where all transferred assets are the same (e.g., bitcoin). (b) NFT collections can serve as subgraph labels since NFTs within the same collection share an identical token address, and the concept of NFT collections is similar to that of painting collections in the real world.](/images/nft_collection.png)
+
+| Category | Count |
+|:-|:-|
+Art | 2872
+PFPs | 625
+Gaming | 101
+Memberships | 93
+Photography | 81
+Music | 17
+Virtual-worlds | 9
+Sports-collectibles | 3
+Others | 7226
+||
