@@ -253,7 +253,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-args.model = 'gcn'
+# args.model = 'gcn'
 args.device= 3
 args.n_hidden= 32
 args.runs = 10
@@ -264,7 +264,7 @@ args.eval_batch_size = 64 *1000
 args.num_workers = 24 
 args.train_percent = 100
 args.val_percent = 0.1
-# args.directed = True
+args.directed = True
 args.eval_steps = 3
 
 args.use_feature = False

@@ -70,13 +70,13 @@ for model in models:
         }
         if dataset_name.endswith('_remove'):
             dataset_ = dataset_name.split('_')[0]
-            g = Dataset(dataset_,prefix=prefix+'/datasets/')
+            g = Dataset(dataset_,prefix=prefix+'/datasets/dgl_graph/')
             graph_tmp = g.graph
             maxdegree = (graph_tmp.in_degrees() + graph_tmp.out_degrees()).argsort()[-1]
             print("maxdegree",maxdegree)
             graph_final = dgl.remove_nodes(graph_tmp,maxdegree.item())
         else:
-            g = Dataset(dataset_name,prefix=prefix+'/datasets/')
+            g = Dataset(dataset_name,prefix=prefix+'/datasets/dgl_graph/')
             graph_final = g.graph            
 
         model_config = {'model': model, 'lr': 0.01, 'drop_rate': 0}
