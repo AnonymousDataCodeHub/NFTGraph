@@ -27,4 +27,4 @@ GAT: https://github.com/dmlc/dgl/tree/master/examples/pytorch/ogb/ogbn-products/
 GCN: https://github.com/dmlc/dgl/tree/master/examples/pytorch/gcn.
 
 ### Results
-![Alt txt](/NFTGraph/images/static_link_prediction_results.png)
+![](images/static_link_prediction_results.png)
