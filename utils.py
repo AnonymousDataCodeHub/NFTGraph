@@ -275,7 +275,7 @@ param_space['CONAD'] = {
     'dropout': [0, 0.1, 0.2, 0.3],
     'num_layers': [2, 3, 4],
     'lr': 10 ** np.linspace(-3, -1, 1000),
-    'weight_decay': [1e-5,1e-4],
+    'weight_decay': [1e-5,1e-4,1e-3],
     'act': [activations['ReLU'], activations['LeakyReLU'], activations['Tanh']],
 }
 
@@ -284,7 +284,7 @@ param_space['DOMINANT'] = {
     'dropout': [0, 0.1, 0.2, 0.3],
     'num_layers': [2, 3, 4],
     'lr': 10 ** np.linspace(-3, -1, 1000),
-    'weight_decay': [1e-5,1e-4],
+    'weight_decay': [1e-5,1e-4,1e-3],
     'act': [activations['ReLU'], activations['LeakyReLU'], activations['Tanh']],
 }
 
@@ -294,7 +294,7 @@ param_space['GAAN'] = {
     'dropout': [0, 0.1, 0.2, 0.3],
     'generator_layers': [2, 3, 4],
     'encoder_layers': [2, 3, 4],
-    'weight_decay': [1e-5,1e-4],
+    'weight_decay': [1e-5,1e-4,1e-3],
     'lr': 10 ** np.linspace(-3, -1, 1000),
     'act': [activations['ReLU'], activations['LeakyReLU'], activations['Tanh']],
 }
@@ -304,7 +304,7 @@ param_space['GCNAE'] = {
     'dropout': [0, 0.1, 0.2, 0.3],
     'num_layers': [2, 3, 4],
     'lr': 10 ** np.linspace(-3, -1, 1000),
-    'weight_decay': [1e-5,1e-4],
+    'weight_decay':[1e-5,1e-4,1e-3],
     'act': [activations['ReLU'], activations['LeakyReLU'], activations['Tanh']],
 }
 
@@ -314,7 +314,7 @@ param_space['MLPAE'] = {
     'dropout': [0, 0.1, 0.2, 0.3],
     'num_layers': [2, 3, 4],
     'lr': 10 ** np.linspace(-3, -1, 1000),
-    'weight_decay': [1e-5,1e-4],
+    'weight_decay': [1e-5,1e-4,1e-3],
     'act': [activations['ReLU'], activations['LeakyReLU'], activations['Tanh']],
 }
 
@@ -323,11 +323,14 @@ best_param = {}
 
 def set_best_param(model, dataset,t):
     model_config = {'model': model, 'lr': 0.01, 'drop_rate': 0}
-
-    for k, v in best_param[model].items():
-        model_config[k] = v
+    
+    if not model in model_detector_dict.keys():
+        for k, v in best_param[model].items():
+            model_config[k] = v
 
     return model_config
+
+
 
 best_param['GCNAE'] = {
     'hid_dim': 16,

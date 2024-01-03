@@ -226,6 +226,9 @@ python random_search.py --trial 100 --datasets nftgraph --models GCN
 Our code is based on the code of **GADBench**, please refer to the [github](https://github.com/squareRoot3/GADBench/tree/master) and [paper](https://arxiv.org/abs/2306.12251) for some details such as semi-supervised setting. 
 
 Hyperparameter search space:
+![](/images/hyperparameter_search_space_for_all_supervised_models.png)
+![](/images/hyperparameter_search_space_for_all_unsupervised_models.png)
+
 
 ### B. Link Prediction
 
