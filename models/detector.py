@@ -3,7 +3,7 @@ from models.attention import *
 from sklearn import svm
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
-from pygod.metrics import eval_precision_at_k,eval_recall_at_k,eval_roc_auc,eval_average_precision
+from pygod.metric import eval_precision_at_k,eval_recall_at_k,eval_roc_auc,eval_average_precision
 from sklearn.metrics import roc_auc_score, average_precision_score
 from sklearn.cluster import KMeans
 from dgl.nn.pytorch.factory import KNNGraph
