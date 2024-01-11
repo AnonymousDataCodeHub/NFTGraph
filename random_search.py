@@ -87,14 +87,14 @@ for model in models:
 
         if dataset_name.endswith('_remove'):    # removing the node with the highest degree
             dataset_ = dataset_name.split('_')[0]
-            g = Dataset(dataset_,prefix=prefix+'/datasets/dgl_graph/')
+            g = Dataset(dataset_,prefix=prefix+'/datasets/')
             graph_tmp = g.graph
             maxdegree = (graph_tmp.in_degrees() + graph_tmp.out_degrees()).argsort()[-1]
             print("maxdegree",maxdegree)
             graph_final = dgl.remove_nodes(graph_tmp,maxdegree.item())
             g.graph = graph_final
         else:
-            g = Dataset(dataset_name,prefix=prefix+'/datasets/dgl_graph/')
+            g = Dataset(dataset_name,prefix=prefix+'/datasets/')
             graph_final = g.graph            
 
         g.split(args.semi_supervised, 0)
@@ -145,10 +145,12 @@ for model in models:
                     detector.fit(data.x[data.train_mask])
                     outlier_scores = detector.decision_function(data.x.numpy())
                     outlier_scores = torch.from_numpy(outlier_scores)
+                    # outlier_scores = detector.decision_function(data.x,return_pred=False,return_score=True)
                 else:
                     detector = model_dict[model](**model_config,**train_config)
                     detector.fit(data)
                     outlier_scores = detector.decision_score_
+                    # outlier_scores = detector.decision_score_predict(data,return_pred=False,return_score=True)
 
                 labels = data.y
                 train_labels, val_labels, test_labels = labels[data.train_mask], labels[data.val_mask], labels[data.test_mask]
