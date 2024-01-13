@@ -19,7 +19,7 @@ NFTGraph/
 └── benchmarks
 ```
 
-## !!!Due to the large files of `raw_data` and `datasets`, please download them from [google drive](https://drive.google.com/drive/folders/12YG7k3PM1mGP76g5qbm4-UrXWogpD8Gm?usp=drive_link) !!
+## !!! Due to the large files of `raw_data` and `datasets`, please download them from [google drive](https://drive.google.com/drive/folders/12YG7k3PM1mGP76g5qbm4-UrXWogpD8Gm?usp=drive_link) !!!
 Make sure the doc trees are:
 ```
 /raw_data/
