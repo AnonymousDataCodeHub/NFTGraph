@@ -4,7 +4,7 @@ This is the officaial implementation of the paper:
 > Understanding the Influence of Extreme High-degree Nodes in Graph Anomaly Detection. (Under Review)
 
 
-Document tree is as follows:
+General document tree is as follows:
 ```
 NFTGraph/
 ├── README.md
