@@ -18,6 +18,67 @@ NFTGraph/
 ├── utils.py
 └── benchmarks
 ```
+
+###!!!Due to the large files of `raw_data` and `datasets`, please download them from [google drive](https://drive.google.com/drive/folders/12YG7k3PM1mGP76g5qbm4-UrXWogpD8Gm?usp=drive_link)!!!
+Make sure the doc trees are:
+```
+/raw_data/
+├── crawler
+│   ├── crawler_selenium.py
+│   ├── readme.md
+│   └── token_category.csv
+├── create_edges.ipynb
+├── create_nodes.ipynb
+├── create_tinygraph.ipynb
+├── edges.csv
+├── nodes.csv
+├── readme.md
+├── suspicious_label
+│   ├── ground_truth_anomaly_nodes.txt
+│   ├── nftgraph_suspicious_labels.txt
+│   └── nftgraph_tiny_suspicious_labels.txt
+├── tinyedges.csv
+├── tinynodes.csv
+└── transactions.csv
+```
+/datasets/
+├── dgl_graph
+│   ├── nftgraph
+│   └── tinynftgraph
+├── ogb_graph
+│   ├── make_master_file.py
+│   ├── submission_ogbl_nftgraph
+│   │   ├── meta_dict.pt
+│   │   └── nftgraph.zip
+│   ├── submission_ogbl_tinynftgraph
+│   │   ├── meta_dict.pt
+│   │   └── tinynftgraph.zip
+│   ├── submission_ogbn_nftgraph
+│   │   ├── meta_dict.pt
+│   │   └── nftgraph.zip
+│   └── submission_ogbn_tinynftgraph
+│       ├── meta_dict.pt
+│       └── tinynftgraph.zip
+├── process.ipynb
+├── process-tiny.ipynb
+├── pyg_graph
+│   ├── nftgraph
+│   └── tinynftgraph
+└── tgb_graph
+    ├── tgbl_nftgraph
+    │   ├── generate_tgbl-nftgraph.py
+    │   ├── ml_tgbl-nftgraph_edge.pkl
+    │   ├── ml_tgbl-nftgraph.pkl
+    │   └── tgbl-nftgraph_edgelist.csv
+    └── tgbl_tinynftgraph
+        ├── generate_tgbl-tinynftgraph.py
+        ├── ml_tgbl-tinynftgraph_edge.pkl
+        ├── ml_tgbl-tinynftgraph.pkl
+        ├── tgbl-tinynftgraph_edgelist.csv
+        ├── tgbl-tinynftgraph_test_ns.pkl
+        └── tgbl-tinynftgraph_val_ns.pkl
+```
+
 ## Pre: Background Knowledge of blockchain and NFT
 At the end.
 
