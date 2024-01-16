@@ -293,8 +293,8 @@ Hyperparameter search space:
 ![](/images/hyperparameter_search_space_for_all_unsupervised_models.png)
 
 Best hyperparameter:
-![](/images/hyperparameter_search_space_for_all_supervised_models.png)
-![](/images/hyperparameter_search_space_for_all_supervised_models.png)
+![](/images/BestHyper_supervised.png)
+![](/images/BestHyper_unsupervised.png)
 
 ### B. Link Prediction
 
