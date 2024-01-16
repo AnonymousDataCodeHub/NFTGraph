@@ -19,7 +19,7 @@ NFTGraph/
 └── benchmarks
 ```
 
-## !!! Due to the large files of `raw_data` and `datasets`, please download them from [google drive](https://drive.google.com/drive/folders/12YG7k3PM1mGP76g5qbm4-UrXWogpD8Gm?usp=drive_link) and replace the directories to make sure the doc trees are:
+### !!! Due to the large files of `raw_data` and `datasets`, please download them from [google drive](https://drive.google.com/drive/folders/12YG7k3PM1mGP76g5qbm4-UrXWogpD8Gm?usp=drive_link) and replace the directories to make sure the doc trees are:
 ```
 /raw_data/
 ├── crawler
@@ -43,8 +43,8 @@ NFTGraph/
 ```
 /datasets/
 ├── dgl_graph
-│   ├── nftgraph
-│   └── tinynftgraph
+│   ├── nftgraph.bin
+│   └── tinynftgraph.bin
 ├── ogb_graph
 │   ├── make_master_file.py
 │   ├── submission_ogbl_nftgraph
@@ -62,8 +62,8 @@ NFTGraph/
 ├── process.ipynb
 ├── process-tiny.ipynb
 ├── pyg_graph
-│   ├── nftgraph
-│   └── tinynftgraph
+│   ├── nftgraph.bin
+│   └── tinynftgraph.bin
 └── tgb_graph
     ├── tgbl_nftgraph
     │   ├── generate_tgbl-nftgraph.py
@@ -78,6 +78,7 @@ NFTGraph/
         ├── tgbl-tinynftgraph_test_ns.pkl
         └── tgbl-tinynftgraph_val_ns.pkl
 ```
+### !!! Please start by running `preprocess.ipynb` before running `anomaly_detection.py` or `random_search.py`.
 
 ## Pre: Background Knowledge of blockchain and NFT
 At the end.
@@ -172,7 +173,7 @@ b. Directly load\
 from dgl.data.utils import load_graphs
 
 dataset_name = 'nftgraph'
-graph = load_graphs(prefix + '/datasets/dgl_graph/' + dataset_name)[0][0]
+graph = load_graphs(prefix + '/datasets/dgl_graph/' + dataset_name+'.bin')[0][0]
 ```
 
 **pyg_graph (PyTorch Geometric)**: 
@@ -182,7 +183,7 @@ import torch
 from torch_geometric.data import Data
 
 dataset_name = 'nftgraph'
-data = torch.load(prefix+'/datasets/pyg_graph/' + dataset_name)
+data = torch.load(prefix+'/datasets/pyg_graph/' + dataset_name'.bin')
 ```
 
 **ogb_graph (OGB)**:
@@ -291,6 +292,9 @@ Hyperparameter search space:
 ![](/images/hyperparameter_search_space_for_all_supervised_models.png)
 ![](/images/hyperparameter_search_space_for_all_unsupervised_models.png)
 
+Best hyperparameter:
+![](/images/hyperparameter_search_space_for_all_supervised_models.png)
+![](/images/hyperparameter_search_space_for_all_supervised_models.png)
 
 ### B. Link Prediction
 

@@ -21,7 +21,7 @@ from pyod.models.iforest import IForest
 
 class Dataset:
     def __init__(self, name='tfinance', prefix='datasets/'):
-        graph = load_graphs(prefix + name)[0][0]
+        graph = load_graphs(prefix + name+'.bin')[0][0]
         self.name = name
         self.graph = graph
 
@@ -357,8 +357,9 @@ best_param = {}
 
 def set_best_param(model, dataset,t):
     model_config = {'model': model, 'lr': 0.01, 'drop_rate': 0}
-    if model in model_dict_od.keys(): # using default hyperparameters
+    if model in model_dict_od.keys() or model_dict.keys(): # using default hyperparameters
         return model_config
+
     if dataset.endswith('_remove'):
         for k, v in best_param_remove[model].items():
             model_config[k] = v

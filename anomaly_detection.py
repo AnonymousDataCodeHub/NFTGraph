@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.data import Data
-from pygod.metrics import eval_roc_auc
+from pygod.metric import eval_roc_auc
 import numpy as np
 import random
 import os
@@ -8,6 +8,8 @@ import argparse
 import time
 from utils import *
 import warnings
+from copy import deepcopy
+
 warnings.filterwarnings("ignore")
 seed_list = list(range(3407, 10000, 10))
 
@@ -26,10 +28,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--trials', type=int, default=5)
 parser.add_argument('--semi_supervised', type=int, default=0)
 parser.add_argument('--inductive', type=int, default=0)
-parser.add_argument('--models', type=str, default=None)
-parser.add_argument('--datasets', type=str, default=None)
+parser.add_argument('--models', type=str, default='allunsuper')
+parser.add_argument('--datasets', type=str, default='tinynftgraph')
 parser.add_argument('--device', type=int, default=0)
 parser.add_argument('--epochs', type=int, default=100)
+parser.add_argument('--pyod', type=int, default=0)
 
 args = parser.parse_args()
 
@@ -44,11 +47,14 @@ if args.datasets is not None:
 if args.models is not None:    
     if args.models == 'allsuper':
         models = ['MLP', 'KNN', 'SVM', 'RF', 'GCN', \
-                'SGC', 'GIN', 'GraphSAGE', 'GAT', 'GT', 'PNA', 'BGNN', 'GAS', \
-                'BernNet', 'AMNet', 'GHRN', 'GATSep', 'PCGNN',\
-                'RFGraph']
+                'SGC', 'GIN', 'GraphSAGE', 'GAT', 'GT', 'GAS', \
+                'BernNet', 'AMNet', 'GHRN', 'GATSep', 'PCGNN']
     elif args.models == 'allunsuper':
-        models = ['GCNAE','MLPAE','GAAN', 'DONE','AnomalyDAE','AdONE','CONAD','DOMINANT']
+        models = ['ANOMALOUS','ONE', 'OCGNN', 'CoLA',\
+            'DONE', 'AnomalyDAE', 'AdONE', 'CONAD' 'DOMINANT'] #'GAAN', 'SCAN', 'Radar', 'GUIDE'
+    elif args.models == 'allunsuperod':
+        models = ['OCSVM', 'LOF', 'CBLOF', 'COF', 'HBOS',\
+            'SOD', 'COPOD', 'ECOD','LODA','IForest']
     else:
         models = args.models.split('-')
     print('Evaluated Baselines: ', models)
@@ -70,16 +76,24 @@ for model in models:
         }
         if dataset_name.endswith('_remove'):
             dataset_ = dataset_name.split('_')[0]
-            g = Dataset(dataset_,prefix=prefix+'/datasets/dgl_graph/')
+            g = Dataset(dataset_,prefix=prefix+'/datasets/')
             graph_tmp = g.graph
             maxdegree = (graph_tmp.in_degrees() + graph_tmp.out_degrees()).argsort()[-1]
             print("maxdegree",maxdegree)
             graph_final = dgl.remove_nodes(graph_tmp,maxdegree.item())
         else:
-            g = Dataset(dataset_name,prefix=prefix+'/datasets/dgl_graph/')
+            g = Dataset(dataset_name,prefix=prefix+'/datasets/')
             graph_final = g.graph            
 
+        g.split(args.semi_supervised, 0)
+
+        c = torch.stack([graph_final.edges()[0], graph_final.edges()[1]], dim=1).t().contiguous()
+        data = Data(x=graph_final.ndata['feature'].to(torch.float32),edge_index=c,y=graph_final.ndata['label'],train_mask=graph_final.ndata['train_mask'],val_mask=graph_final.ndata['val_mask'],test_mask=graph_final.ndata['test_mask'])
+        data.x = (data.x - torch.mean(data.x,dim=0))/ torch.std(data.x,dim=0)
+        print(f"\nData: {data}\n\n")
+        
         model_config = {'model': model, 'lr': 0.01, 'drop_rate': 0}
+
 
         auc_list, pre_list, rec_list = [], [], []
         for t in range(args.trials):
@@ -90,18 +104,21 @@ for model in models:
             train_config['seed'] = seed
             g.split(args.semi_supervised, t)
             st = time.time()
+
             if model in model_detector_dict.keys():
+                tmp = g.graph.ndata['feature']
+                tmp = (tmp - torch.mean(tmp,dim=0))/ torch.std(tmp,dim=0)
+                g.graph.ndata['feature'] = tmp
+
+                model_config = set_best_param(model, dataset_name, t)
                 detector = model_detector_dict[model](train_config, model_config, g)
                 print(detector.model)
+                print("model_config: ", model_config)
+                
                 test_score = detector.train()
                 auc_list.append(test_score['AUROC']), pre_list.append(test_score['AUPRC']), rec_list.append(test_score['RecK'])
 
             else: #unsupervised
-                # To utilize the `pygod` package, graph of `pyg` format is employed.
-                c = torch.stack([graph_final.edges()[0], graph_final.edges()[1]], dim=1).t().contiguous()
-                data = Data(x=graph_final.ndata['feature'].to(torch.float32),edge_index=c,y=graph_final.ndata['label'])
-                print(f"Data: {data}\n\n\n")
-                
                 if model == 'GCNAE':
                     batchsize = 0
                 elif model == 'CONAD' or model == 'DOMINANT':
@@ -112,16 +129,21 @@ for model in models:
                 train_config['batch_size'] = batchsize
                 model_config = set_best_param(model, dataset_name, t)
 
-                detector = model_dict[model](**model_config,**train_config)
-                detector.fit(data)
-                outlier_scores = detector.decision_scores_
-                y = list(data.y.numpy())
-                outlier_scores = list(outlier_scores)
-                auc_score = eval_roc_auc(y, outlier_scores)
-                map = average_precision_score(y, outlier_scores)
-                k = sum(y)
-                reck = sum(np.array(y)[np.array(outlier_scores).argsort()[-k:]]) / sum(y)
-                auc_list.append(auc_score),pre_list.append(map),rec_list.append(reck)
+                if args.pyod:   
+                    detector = model_dict_od[model](**model_config,**train_config)
+                    detector.fit(data.x[data.train_mask])
+                    outlier_scores = detector.decision_function(data.x.numpy())
+                    outlier_scores = torch.from_numpy(outlier_scores)
+                else:
+                    detector = model_dict[model](**model_config,**train_config)
+                    detector.fit(data)
+                    outlier_scores = detector.decision_score_
+
+                labels = data.y
+                train_labels, val_labels, test_labels = labels[data.train_mask], labels[data.val_mask], labels[data.test_mask]
+                test_score = toeval(test_labels, outlier_scores[data.test_mask])
+                best_troc, best_tprc, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RecK']
+                auc_list.append(best_troc),pre_list.append(best_tprc),rec_list.append(best_treck)
 
             ed = time.time()
             time_cost += ed - st
