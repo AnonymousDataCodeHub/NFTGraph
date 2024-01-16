@@ -3,3 +3,8 @@
 *.pt
 *.zip
 *.bin
+logs/
+results/
+runs/
+__pycache__/
+models/__pycache__/
