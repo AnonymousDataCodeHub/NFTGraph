@@ -60,7 +60,7 @@ parser.add_argument("--val_percent", type=float, default=0.3)
 args = parser.parse_args()
 
 prefix = '/data/sx/NFTGraph'
-res_dir = os.path.join(prefix,f'linkpred/results',f'{args.dataset.split("-")[1]}-{args.model}',)
+res_dir = os.path.join(prefix,f'benchmarks/edge_StaticLinkPrediction/results',f'{args.dataset.split("-")[1]}-{args.model}',)
 if os.path.exists(res_dir):
     shutil.rmtree(res_dir)
 
