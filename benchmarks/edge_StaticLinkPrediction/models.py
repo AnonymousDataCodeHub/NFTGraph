@@ -1,11 +1,262 @@
+from typing import Iterator
 import torch
 from torch.nn import Module, ModuleList, Linear, Parameter, BatchNorm1d, LayerNorm
 import torch.nn.functional as F
-
+import torch.nn as nn
 
 from dgl.nn.pytorch import GraphConv
 from dgl import DropEdge
 from layers import SAGEConv, GATConv, AGDNConv, MemAGDNConv
+from dgl.sampling import node2vec_random_walk
+from torch_geometric.nn import Node2Vec
+from torch.utils.data import DataLoader
+
+
+class MLP(Module):
+    def __init__(self, in_feats, n_hidden, out_feats, n_layers,
+                 dropout, bn=False):
+        super(MLP, self).__init__()
+        self.lins = torch.nn.ModuleList()
+        if bn and n_layers > 1:
+            self.bns = torch.nn.ModuleList()
+        else:
+            self.bns = None
+        for i in range(n_layers):
+            in_feats_ = in_feats if i == 0 else n_hidden
+            out_feats_ = out_feats if i == n_layers - 1 else n_hidden
+            self.lins.append(torch.nn.Linear(in_feats_, out_feats_))
+            if bn and i < n_layers - 1:
+                self.bns.append(torch.nn.BatchNorm1d(out_feats_))
+
+        self.dropout = dropout
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        for lin in self.lins:
+            lin.reset_parameters()
+        
+        if self.bns is not None:
+            for bn in self.bns:
+                bn.reset_parameters()
+
+    def forward(self, graph,feat,edge_feat):
+        x = feat
+        # x = torch.cat([x_i, x_j], dim=-1)
+        for i, lin in enumerate(self.lins):
+            x = lin(x)
+            if i < len(self.lins) - 1:
+                if self.bns is not None:
+                    x = self.bns[i](x)
+                x = F.relu(x)
+                x = F.dropout(x, p=self.dropout, training=self.training)
+        return x
+
+
+class Node2vec(nn.Module):
+    """Node2vec model from paper node2vec: Scalable Feature Learning for Networks <https://arxiv.org/abs/1607.00653>
+    Attributes
+    ----------
+    g: DGLGraph
+        The graph.
+    embedding_dim: int
+        Dimension of node embedding.
+    walk_length: int
+        Length of each trace.
+    p: float
+        Likelihood of immediately revisiting a node in the walk.  Same notation as in the paper.
+    q: float
+        Control parameter to interpolate between breadth-first strategy and depth-first strategy.
+        Same notation as in the paper.
+    num_walks: int
+        Number of random walks for each node. Default: 10.
+    window_size: int
+        Maximum distance between the center node and predicted node. Default: 5.
+    num_negatives: int
+        The number of negative samples for each positive sample.  Default: 5.
+    use_sparse: bool
+        If set to True, use PyTorch's sparse embedding and optimizer. Default: ``True``.
+    weight_name : str, optional
+        The name of the edge feature tensor on the graph storing the (unnormalized)
+        probabilities associated with each edge for choosing the next node.
+
+        The feature tensor must be non-negative and the sum of the probabilities
+        must be positive for the outbound edges of all nodes (although they don't have
+        to sum up to one).  The result will be undefined otherwise.
+
+        If omitted, DGL assumes that the neighbors are picked uniformly.
+    """
+
+    def __init__(
+        self,
+        g,
+        embedding_dim,
+        walk_length,
+        p,
+        q,
+        num_walks=10,
+        window_size=5,
+        num_negatives=1,
+        use_sparse=True,
+        weight_name=None,
+    ):
+        super(Node2vec, self).__init__()
+
+        assert walk_length >= window_size
+
+        self.g = g
+        self.embedding_dim = embedding_dim
+        self.walk_length = walk_length
+        self.p = p
+        self.q = q
+        self.num_walks = num_walks
+        self.window_size = window_size
+        self.num_negatives = num_negatives
+        self.N = self.g.num_nodes()
+        if weight_name is not None:
+            self.prob = weight_name
+        else:
+            self.prob = None
+        self.use_sparse = use_sparse
+        self.embedding = nn.Embedding(self.N, embedding_dim, sparse=use_sparse)
+
+    def reset_parameters(self):
+        self.embedding.reset_parameters()
+
+    def sample(self, batch):
+        """
+        Generate positive and negative samples.
+        Positive samples are generated from random walk
+        Negative samples are generated from random sampling
+        """
+        if not isinstance(batch, torch.Tensor):
+            batch = torch.tensor(batch)
+
+        batch = batch.repeat(self.num_walks)
+        # positive
+        pos_traces = node2vec_random_walk(
+            self.g, batch, self.p, self.q, self.walk_length, self.prob
+        )
+        pos_traces = pos_traces.unfold(1, self.window_size, 1)  # rolling window
+        pos_traces = pos_traces.contiguous().view(-1, self.window_size)
+
+        # negative
+        neg_batch = batch.repeat(self.num_negatives)
+        neg_traces = torch.randint(
+            self.N, (neg_batch.size(0), self.walk_length)
+        )
+        neg_traces = torch.cat([neg_batch.view(-1, 1), neg_traces], dim=-1)
+        neg_traces = neg_traces.unfold(1, self.window_size, 1)  # rolling window
+        neg_traces = neg_traces.contiguous().view(-1, self.window_size)
+
+        return pos_traces, neg_traces
+
+    def loss(self, pos_trace, neg_trace):
+        """
+        Computes the loss given positive and negative random walks.
+        Parameters
+        ----------
+        pos_trace: Tensor
+            positive random walk trace
+        neg_trace: Tensor
+            negative random walk trace
+
+        """
+        e = 1e-15
+
+        # Positive
+        pos_start, pos_rest = (
+            pos_trace[:, 0],
+            pos_trace[:, 1:].contiguous(),
+        )  # start node and following trace
+        w_start = self.embedding(pos_start).unsqueeze(dim=1)
+        w_rest = self.embedding(pos_rest)
+        pos_out = (w_start * w_rest).sum(dim=-1).view(-1)
+
+        # Negative
+        neg_start, neg_rest = neg_trace[:, 0], neg_trace[:, 1:].contiguous()
+
+        w_start = self.embedding(neg_start).unsqueeze(dim=1)
+        w_rest = self.embedding(neg_rest)
+        neg_out = (w_start * w_rest).sum(dim=-1).view(-1)
+
+        # compute loss
+        pos_loss = -torch.log(torch.sigmoid(pos_out) + e).mean()
+        neg_loss = -torch.log(1 - torch.sigmoid(neg_out) + e).mean()
+
+        return pos_loss + neg_loss
+
+    def loader(self, batch_size):
+        """
+
+        Parameters
+        ----------
+        batch_size: int
+            batch size
+
+        Returns
+        -------
+        DataLoader
+            Node2vec training data loader
+
+        """
+        return DataLoader(
+            torch.arange(self.N),
+            batch_size=batch_size,
+            shuffle=True,
+            collate_fn=self.sample,
+        )
+
+    def forward(self, graph,feat,nodes=None):
+        """
+        Returns the embeddings of the input nodes
+        Parameters
+        ----------
+        nodes: Tensor, optional
+            Input nodes, if set `None`, will return all the node embedding.
+
+        Returns
+        -------
+        Tensor
+            Node embedding
+
+        """
+        emb = self.embedding.weight
+        if nodes is None:
+            return emb
+        else:
+            return emb[nodes]
+
+
+class MF(nn.Module):
+    def __init__(
+        self,
+        num_embeddings,
+        embedding_dim,
+        use_sparse=True,
+    ):
+        super(MF, self).__init__()
+        self.embedding = nn.Embedding(num_embeddings, embedding_dim, sparse=use_sparse)
+
+    def reset_parameters(self):
+        self.embedding.reset_parameters()
+
+    def forward(self, graph,feat,edge_feat):
+        """
+        Returns the embeddings of the input nodes
+        Parameters
+        ----------
+        nodes: Tensor, optional
+            Input nodes, if set `None`, will return all the node embedding.
+
+        Returns
+        -------
+        Tensor
+            Node embedding
+
+        """
+        emb = self.embedding.weight
+        return emb
+        
 
 class GCN(Module):
     def __init__(self, in_feats, n_hidden, out_feats, n_layers,
@@ -68,6 +319,7 @@ class GCN(Module):
             h = F.dropout(h, p=self.dropout, training=self.training)
         return h
 
+
 class SAGE(torch.nn.Module):
     def __init__(self, in_feats, n_hidden, out_feats, n_layers,
                  dropout, input_drop, edge_feats=0, bn=True, residual=True):
@@ -125,6 +377,7 @@ class SAGE(torch.nn.Module):
             h = F.dropout(h, p=self.dropout, training=self.training)
         return h
 
+
 class GAT(Module):
     def __init__(self, in_feats, n_hidden, out_feats, n_layers,
                  num_heads,
@@ -177,6 +430,7 @@ class GAT(Module):
             h = F.relu(h)
             h = F.dropout(h, p=self.dropout, training=self.training)
         return h
+
 
 class AGDN(Module):
     def __init__(self, in_feats, n_hidden, out_feats, n_layers,
@@ -260,6 +514,7 @@ class AGDN(Module):
                 h = h + h_last
         return h
 
+
 class MemAGDN(Module):
     def __init__(self, in_feats, n_hidden, out_feats, n_layers,
                  num_heads, K,
@@ -325,6 +580,7 @@ class MemAGDN(Module):
         h += self.bias
         return h
 
+
 class DotPredictor(Module):
     def __init__(self):
         super(DotPredictor, self).__init__()
@@ -335,6 +591,7 @@ class DotPredictor(Module):
     def forward(self, x_i, x_j):
         x = torch.sum(x_i * x_j, dim=-1)
         return x
+
 
 class CosPredictor(Module):
     def __init__(self):
@@ -347,6 +604,7 @@ class CosPredictor(Module):
         x = torch.sum(x_i * x_j, dim=-1) / \
             torch.sqrt(torch.sum(x_i * x_i, dim=-1) * torch.sum(x_j * x_j, dim=-1)).clamp(min=1-9)
         return x
+    
         
 class LinkPredictor(Module):
     def __init__(self, in_feats, n_hidden, out_feats, n_layers,
