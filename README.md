@@ -300,14 +300,14 @@ Best hyperparameter:
 
 #### a. edge_StaticLinkPrediction
 
-Execute the command `python main.py` after entering each model folder. For example,
+Execute the command `python run_link_prediction.py` after entering each model folder. For example,
 
 ```python
-cd /benchmarks/edge_StaticLinkPrediction/AGDN_GAT_GCN_GraphSAGE
-python main.py --model GCN
+cd /benchmarks/edge_StaticLinkPrediction/
+python run_link_prediction.py --dataset ogbl-nftgraph --model gcn --trials 10 
 ```
 
-Enter `/NFTGraph/benchmarks/edge_StaticLinkPrediction` for more details of results of benchmarks.
+Enter `/NFTGraph/benchmarks/edge_StaticLinkPrediction` for more details of benchmarks.
 
 #### b. edge_TemporalLinkPrediction
 
