@@ -1072,3 +1072,85 @@ class H2FDetector(BaseDetector):
                 if self.patience_knt > self.train_config['patience']:
                     break
         return test_score
+
+class DotPredictor(nn.Module):
+    def __init__(self):
+        super(DotPredictor, self).__init__()
+
+    def reset_parameters(self):
+        return
+
+    def forward(self, x_i, x_j):
+        x = torch.sum(x_i * x_j, dim=-1)
+        return x
+        
+backbones = {'GCN':GCN,'GAT':GAT,'GraphSAGE':GraphSAGE,'ChebNet':ChebNet}
+
+class SNGNNDetector(BaseDetector):
+    def __init__(self, train_config, model_config, data):
+        super().__init__(train_config, model_config, data)
+        model_config['in_feats'] = self.data.graph.ndata['feature'].shape[1]   
+        self.model = backbones[model_config['backbone']](**model_config).to(train_config['device'])
+        self.dot = DotPredictor()
+        # self.p1 = model_config['p1']
+        # self.p2 = model_config['p2']
+        self.p1,self.p2 = model_config['p']
+        self.withoutLinkPred = model_config['withoutLinkPred']
+        
+
+    def train(self):
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['lr'])
+        train_labels, val_labels, test_labels = self.labels[self.train_mask], self.labels[self.val_mask], self.labels[self.test_mask]
+
+        firstnode = (self.train_graph.in_degrees() + self.train_graph.out_degrees()).argsort()[-1]
+        lastnode = self.train_graph.num_nodes()-1
+        # neighbors = self.train_graph.successors(firstnode)
+        neighbors = torch.cat((self.train_graph.successors(firstnode), self.train_graph.predecessors(firstnode)))
+
+        for e in range(self.train_config['epochs']):
+            # print(e)
+            self.model.train()
+            print("self.train_graph.num_edges():",self.train_graph.num_edges())
+            
+            if not self.withoutLinkPred:
+                print("p1,p2:",self.p1,self.p2,"self.train_graph.num_edges():",self.train_graph.num_edges())
+                represents = self.model(self.train_graph,verbose=True)
+                dots = []
+                for neighbor in neighbors:
+                    dot_val = self.dot(represents[firstnode],represents[neighbor])
+                    dots.append(dot_val)
+
+                p = torch.tensor([self.p1,self.p2])
+                p1,p9 = torch.quantile(torch.tensor(dots).to(self.train_config['device']),p.to(self.train_config['device']))
+                
+                for idx,neighbor in enumerate(neighbors):
+                    # dot_val = self.dot(represents[firstnode],represents[neighbor])
+                    dot_val = dots[idx]
+                    if dot_val <= p1 and self.train_graph.has_edges_between(firstnode,neighbor):
+                        edge_id = self.train_graph.edge_ids(firstnode, neighbor)
+                        self.train_graph.remove_edges(edge_id)
+                    elif dot_val >= p9 and (not self.train_graph.has_edges_between(firstnode,neighbor)):
+                        self.train_graph.add_edges(firstnode,neighbor)       
+                    
+                self.model_config['dotval'] = (p1,p9)
+            
+            logits = self.model(self.train_graph)
+            loss = F.cross_entropy(logits[self.train_graph.ndata['train_mask']], train_labels,
+                                   weight=torch.tensor([1., self.weight], device=self.labels.device))
+            
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            probs = logits.softmax(1)[:, 1]
+            val_score = self.eval(val_labels, probs[self.val_mask])
+            if val_score[self.train_config['metric']] > self.best_score:
+                self.patience_knt = 0
+                self.best_score = val_score[self.train_config['metric']]
+                test_score = self.eval(test_labels, probs[self.test_mask])
+            else:
+                self.patience_knt += 1
+                if self.patience_knt > self.train_config['patience']:
+                    break
+        return test_score
+    
