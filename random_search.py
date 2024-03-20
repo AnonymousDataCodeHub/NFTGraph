@@ -22,16 +22,15 @@ def set_seed(seed=3407):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--trials', type=int, default=5)  # Number of random search
+parser.add_argument('--trials', type=int, default=100)  # Number of random search
 parser.add_argument('--semi_supervised', type=int, default=0)
-parser.add_argument('--models', type=str, default='allunsuper')
-parser.add_argument('--datasets', type=str, default='reddit_remove')
+parser.add_argument('--models', type=str, default='allunsuper') # SemiGNN
+parser.add_argument('--datasets', type=str, default='tinynftgraph')
 parser.add_argument('--device', type=int, default=1)
 parser.add_argument('--epochs', type=int, default=100) # Number of training epochs
 parser.add_argument('--pyod', type=int, default=0)
 
 args = parser.parse_args()
-
 
 prefix = '/data/sx/NFTGraph'
 
@@ -90,7 +89,7 @@ for model in models:
             g = Dataset(dataset_,prefix=prefix+'/datasets/')
             graph_tmp = g.graph
             maxdegree = (graph_tmp.in_degrees() + graph_tmp.out_degrees()).argsort()[-1]
-            print("maxdegree",maxdegree)
+            # print("maxdegree",maxdegree)
             graph_final = dgl.remove_nodes(graph_tmp,maxdegree.item())
             g.graph = graph_final
         else:
@@ -102,27 +101,72 @@ for model in models:
         
         # To utilize the `pygod` package, graph of `pyg` format is employed.
         c = torch.stack([graph_final.edges()[0], graph_final.edges()[1]], dim=1).t().contiguous()
+        c = c.long()
         data = Data(x=graph_final.ndata['feature'].to(torch.float32),edge_index=c,y=graph_final.ndata['label'],train_mask=graph_final.ndata['train_mask'],val_mask=graph_final.ndata['val_mask'],test_mask=graph_final.ndata['test_mask'])
         data.x = (data.x - torch.mean(data.x,dim=0))/ torch.std(data.x,dim=0)
         print(f"\nData: {data}\n\n")
         
+        tmp = graph_final.ndata['feature']
+        tmp = (tmp - torch.mean(tmp,dim=0))/ torch.std(tmp,dim=0)
+        graph_final.ndata['feature'] = tmp        
         
         for t in range(args.trials):
             print("Dataset {}, Model {}, Trial {}, Time Cost {:.2f}".format(dataset_name, model, t, time_cost))
             if time_cost > 7200:  # 86400 Stop after 1 day
                 break
             train_config['seed'] = seed_list[t]
-
+            # g.split(args.semi_supervised, t)
             st = time.time()
             if model in model_detector_dict.keys():
-                tmp = g.graph.ndata['feature']
-                tmp = (tmp - torch.mean(tmp,dim=0))/ torch.std(tmp,dim=0)
-                g.graph.ndata['feature'] = tmp
 
                 model_config = sample_param(model, dataset_name, t)
                 detector = model_detector_dict[model](train_config, model_config, g)
                 print("model_config: ", model_config)
                 test_score = detector.train()
+                if detector.best_score > best_val_score:
+                    print("****current best score****")
+                    best_val_score = detector.best_score
+                    best_model_config = deepcopy(model_config)
+                    best_troc, best_tprc, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RecK']
+                model_config['withoutDummyNode'] = args.withoutDummyNode
+                model_config['withoutLinkPred'] = args.withoutLinkPred
+
+                if args.pyod:   
+                    detector = model_dict_od[model]()
+                    detector.fit(data.x[data.train_mask])
+                    outlier_scores = detector.decision_function(data.x.numpy())
+                    outlier_scores = torch.from_numpy(outlier_scores)
+                else:
+                    detector = model_dict[model](**model_config,**train_config)
+                    detector.fit(data)
+                    outlier_scores = detector.decision_score_
+                labels = data.y
+                train_labels, val_labels, test_labels = labels[data.train_mask], labels[data.val_mask], labels[data.test_mask]
+                val_score = toeval(val_labels, outlier_scores[data.val_mask])
+                if val_score[train_config['metric']] > best_val_score:
+                    print("****current best score****")
+                    best_val_score = val_score[train_config['metric']]
+                    best_model_config = deepcopy(model_config)
+                    test_score = toeval(test_labels, outlier_scores[data.test_mask])
+                    best_troc, best_tprc, best_treck = test_score['AUROC'], test_score['AUPRC'], test_score['RecK']
+            elif model == 'SNGNN':
+                graph_final = graph_final.long()
+                g.graph = graph_final
+                if not model_config['withoutDummyNode']:
+                    feat = g.graph.ndata['feature'][g.graph.ndata['train_mask']==1]
+                    meanfeat = feat[g.graph.ndata['label'][g.graph.ndata['train_mask']==1]==1].mean(axis=0).to(torch.float32).unsqueeze(0)
+                    zeromasks = torch.tensor([0]*20,dtype=torch.uint8).unsqueeze(0)
+                    onemasks = torch.tensor([1]*20,dtype=torch.uint8).unsqueeze(0)
+                    g.graph = dgl.add_nodes(g.graph,1,{'feature':meanfeat,'test_masks':zeromasks,'val_masks':zeromasks,'train_masks':onemasks, \
+                        'train_mask':torch.tensor([1],dtype=torch.uint8),'val_mask':torch.tensor([0],dtype=torch.uint8),'test_mask':torch.tensor([0],dtype=torch.uint8), \
+                        'label':torch.tensor([1],dtype=torch.int64)})
+
+                    indices  = torch.nonzero(g.graph.ndata['label'][g.graph.ndata['train_mask']==1] == 1).squeeze()
+                    g.graph.add_edges(torch.tensor([g.graph.num_nodes()-1]*len(indices)),indices)        
+                    g.graph = g.graph.remove_self_loop().add_self_loop()        
+                detector = SNGNNDetector(train_config, model_config, g)
+                test_score = detector.train()
+                print(test_score)
                 if detector.best_score > best_val_score:
                     print("****current best score****")
                     best_val_score = detector.best_score
